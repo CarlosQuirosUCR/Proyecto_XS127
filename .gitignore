@@ -48,3 +48,23 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+
+# Quarto
+.quarto/
+_freeze/
+
+# LaTeX auxiliary files
+*.aux
+*.log
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+
+# Operating system
+.DS_Store
+Thumbs.db
+
+# RStudio temporary files
+*.Rproj

@@ -1,0 +1,53 @@
+% Paquetes y configuraciones generales de LaTeX
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{xcolor}
+\usepackage{microtype}
+\usepackage{hyperref}
+\usepackage{caption}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+
+% Colores institucionales del documento
+\definecolor{brandblue}{HTML}{1A365D}
+\definecolor{brandgray}{HTML}{4A5568}
+\definecolor{emailgray}{HTML}{6B7280}
+
+% Formato de leyendas de figuras
+\captionsetup[figure]{
+  justification=justified,
+  singlelinecheck=false,
+  font=normal,
+  labelfont=bf,
+  labelsep=period
+}
+
+% Personalización del bloque de título.
+% Los nombres y correos se conservan tal como fueron proporcionados.
+\makeatletter
+\def\@maketitle{%
+  \newpage
+  \null
+  \vskip 1em%
+  \begin{center}%
+    {\Large\bfseries\color{brandblue} \@title \par}%
+    \vskip 1.2em%
+    {\small
+      \begin{tabular}[t]{c}
+        \textbf{Alejandro Angulo Nadal} \\
+        \footnotesize\textcolor{emailgray}{\href{mailto:luis.angulonadal@ucr.ac.cr}{luis.angulonadal@ucr.ac.cr}}
+      \end{tabular}\hskip 1.5em
+      \begin{tabular}[t]{c}
+        \textbf{Gerald Castro Matuz} \\
+        \footnotesize\textcolor{emailgray}{\href{mailto:gerald.castromatuz@ucr.ac.cr}{gerald.castromatuz@ucr.ac.cr}}
+      \end{tabular}\hskip 1.5em
+      \begin{tabular}[t]{c}
+        \textbf{Carlos Quirós Cordero}\thanks{Estudiantes de Estadística de la Universidad de Costa Rica.} \\
+        \footnotesize\textcolor{emailgray}{\href{mailto:carlos.quiroscordero@ucr.ac.cr}{carlos.quiroscordero@ucr.ac.cr}}
+      \end{tabular}%
+    }\par
+  \end{center}%
+  \par
+  \vskip 1.2em
+}
+\makeatother

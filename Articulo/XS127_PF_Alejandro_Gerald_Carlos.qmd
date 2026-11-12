@@ -1,0 +1,62 @@
+---
+title: "Comparación de modelos de series temporales para el pronóstico del consumo residencial de gas natural en Estados Unidos"
+date: ""
+bibliography: referencias/referencias_apa.bib
+csl: https://www.zotero.org/styles/apa
+author: ""
+lang: es
+crossref:
+  fig-prefix: "figura"
+  fig-title: "Figura"
+
+format:
+  pdf:
+    documentclass: article
+    classoption:
+      - 11pt
+      - letterpaper
+
+    number-sections: true
+    number-depth: 2
+
+    geometry:
+      - top=2.5cm
+      - bottom=2.5cm
+      - left=2.5cm
+      - right=2.5cm
+
+    colorlinks: true
+    linkcolor: NavyBlue
+    urlcolor: NavyBlue
+    citecolor: NavyBlue
+
+    include-in-header:
+      - file: latex/preamble.tex
+      - file: latex/header.tex
+---
+
+# Introducción
+
+
+El gas natural es una importante fuente de energía para los hogares del los Estados Unidos. Para el año 2023, representó aproximadamente el 41% del consumo energético en el sector residencial estadounidense, mientras que, cerca del 60% de las viviendas utilizaron este recurso para actividades como la calefacción, el calentamiento de agua, la cocina y el secado de ropa [@eia2024gas]. Estos datos evidencian la relevancia de este producto dentro de la demanda energética residencial, y motivan el estudio de su comportamiento en el tiempo. 
+
+En la presente investigación, se trabajará con la serie de tiempo consumo de gas residencial en Estados Unidos, publicada por la @eia_us_ng_residential_consumption. La variable está expresada en millones de pies cúbicos y su periodicidad es mensual, con registros desde enero de 1973 hasta junio de 2026, es decir, se poseen 642 observaciones. El amplio período proporciona una base histórica adecuada para realizar el análisis descriptivo inicial, evaluar la composición de la serie, y pronosticar valores por medio de modelos de series temporales.
+
+Desde el punto de vista estadístico, el consumo residencial de gas natural es considerado como un fenómeno de interés, debido a que su comportamiento puede presentar variaciones en el tiempo, patrones asociados a la estacionalidad y tendencia al mediano-largo plazo. El análisis de estas características permite conocer la evolución de la demanda energética residencial y evaluar la pertinencia de distintas técnicas de modelado aplicadas sobre esta serie temporal. 
+
+Por otra parte, Estados Unidos, a diferencia de muchos otros países, cuenta con una extensa y compleja infraestructura destinada al transporte y distribución de gas natural. La mayoría de los hogares no utilizan cilindros de gas, pues existe un sistema de tuberías por medio del cual se distribuye el recurso a las viviendas. El cobro se realiza según el consumo, como suele ocurrir con la electricidad en la mayoría de naciones del mundo. 
+
+Según menciona @valdezGas, Estados Unidos es el uno de los máximos productores de gas natural a nivel mundial. Por lo tanto, este hidrocarburo es una de las fuentes de energía más utilizadas por los hogares en ese país, tanto para realizar las labores cotidianas como  para alimentar los sistemas de calefacción de las vivienda. Asimismo, debido a las bajas temperaturas que se presentan en este país durante el invierno, principalmente en las regiones ubicadas hacia el norte, sobre todo en las zonas cercanas a los Grandes Lagos (Nueva York, Michigan, Minnesota, etc.) o a las Montañas Rocallosas (Montana, Wyoming, etc.), el consumo de gas natural adquiere una mayor relevancia durante esta época del año [@timmer2007relations].
+
+Debido a la alta demanda que posee el gas natural en los Estados Unidos, principalmente durante el invierno, es relevante pronosticar su consumo mensual, sobre todo en las épocas del año en que su uso es mayor, y donde un desabasto sería crítico, pues se podría comprometer la salud física de las personas, especialmente de aquellas que no pueden costear un aumento significativo en el costo del gas, producido por una alza importante en la demanda y una oferta insuficiente.
+
+Por último, en el análisis de series temporales energéticas se utilizan métodos de descomposición para aislar la tendencia, estacionalidad y componente irregular. Jiang et al. [@Jiang2023WPDVMDLSTM] desarrollaron un marco híbrido con LSTM para pronosticar el consumo mensual de gas en Estados Unidos, filtrando el ruido estacional. Asimismo, Wei y Bai [@Wei2022SSACNNBiGRU] propusieron el esquema SSA-CNN-BiGRU para consumo en edificios del Reino Unido, combinando el análisis espectral singular con redes profundas para reducir la no estacionariedad y volatilidad de datos.
+
+Por otro lado, la regresión dinámica y los modelos de Box-Jenkins permiten incorporar variables exógenas y autocorrelación. Guidolin y Rizzelli [@Guidolin2025Dynamic] combinaron un modelo de tendencia determinística con procesos ARIMAX para estimar la demanda en seis países europeos, incluyendo la temperatura como variable explicativa. En esta línea, Alakent et al. [@Alakent2025JITL] aplicaron el método JITL-GPR para la demanda residencial en Turquía, demostrando que este enfoque supera a modelos como SARIMA y suavizamiento exponencial ETS al capturar la estacionalidad local.
+
+En conclusión, el presente proyecto tiene como propósito evaluar distintos modelos de series temporales, con el fin de determinar cuál de ellos posee un mejor rendimiento para pronosticar el consumo mensual de gas en Estados Unidos, y de ese modo predecir valores futuros que permitan tomar medidas preventivas en torno a posibles déficits o superávits energéticos.
+
+# Metodología
+
+# Referencias Biliográficas
+

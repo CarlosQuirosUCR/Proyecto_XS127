@@ -1,0 +1,21 @@
+% Formato de secciones
+\titleformat{\section}
+  {\normalfont\large\bfseries\color{brandblue}}
+  {\thesection.}{0.5em}{}
+
+\titleformat{\subsection}
+  {\normalfont\normalsize\bfseries\color{brandblue}}
+  {\thesubsection.}{0.5em}{}
+
+% Encabezados y pies de página
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\itshape\textcolor{brandgray}{Consumo Residencial de Gas Natural en EE. UU.}}
+\fancyhead[R]{\small\textcolor{brandgray}{\thepage}}
+\renewcommand{\headrulewidth}{0pt}
+
+\fancypagestyle{plain}{
+  \fancyhf{}
+  \fancyfoot[C]{\small\textcolor{brandgray}{\thepage}}
+  \renewcommand{\headrulewidth}{0pt}
+}
