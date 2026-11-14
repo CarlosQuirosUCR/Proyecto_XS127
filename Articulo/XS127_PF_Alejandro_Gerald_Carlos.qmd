@@ -48,7 +48,7 @@ Por otra parte, Estados Unidos, a diferencia de muchos otros países, cuenta con
 
 Según menciona @valdezGas, Estados Unidos es el uno de los máximos productores de gas natural a nivel mundial. Por lo tanto, este hidrocarburo es una de las fuentes de energía más utilizadas por los hogares en ese país, tanto para realizar las labores cotidianas como  para alimentar los sistemas de calefacción de las vivienda. Asimismo, debido a las bajas temperaturas que se presentan en este país durante el invierno, principalmente en las regiones ubicadas hacia el norte, sobre todo en las zonas cercanas a los Grandes Lagos (Nueva York, Michigan, Minnesota, etc.) o a las Montañas Rocallosas (Montana, Wyoming, etc.), el consumo de gas natural adquiere una mayor relevancia durante esta época del año [@timmer2007relations].
 
-Debido a la alta demanda que posee el gas natural en los Estados Unidos, principalmente durante el invierno, es relevante pronosticar su consumo mensual, sobre todo en las épocas del año en que su uso es mayor, y donde un desabasto sería crítico, pues se podría comprometer la salud física de las personas, especialmente de aquellas que no pueden costear un aumento significativo en el costo del gas, producido por una alza importante en la demanda y una oferta insuficiente.
+Debido a la alta demanda que posee el gas natural en los Estados Unidos, principalmente durante el invierno, es relevante pronosticar su consumo mensual, sobre todo en las épocas del año en que su uso es mayor, y donde un desabasto sería crítico, pues se podría comprometer la salud física de las personas, especialmente de aquellas que no pueden costear un aumento significativo en el precio del gas, producido por una alza importante en la demanda y una oferta insuficiente.
 
 Por último, en el análisis de series temporales energéticas se utilizan métodos de descomposición para aislar la tendencia, estacionalidad y componente irregular. Jiang et al. [@Jiang2023WPDVMDLSTM] desarrollaron un marco híbrido con LSTM para pronosticar el consumo mensual de gas en Estados Unidos, filtrando el ruido estacional. Asimismo, Wei y Bai [@Wei2022SSACNNBiGRU] propusieron el esquema SSA-CNN-BiGRU para consumo en edificios del Reino Unido, combinando el análisis espectral singular con redes profundas para reducir la no estacionariedad y volatilidad de datos.
 
@@ -58,5 +58,11 @@ En conclusión, el presente proyecto tiene como propósito evaluar distintos mod
 
 # Metodología
 
-# Referencias Biliográficas
+# Resultados
+
+# Conclusiones
+
+\newpage
+
+# Referencias Bibliográficas
 
