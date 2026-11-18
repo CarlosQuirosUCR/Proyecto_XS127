@@ -12,3 +12,302 @@ format: html
 3. Exportar en formato rds, dentro de la Ruta "Resultados/Modelo" el modelo ganador junto a los gráficos que se incluirán en el artículo.
 
 4. No debe hacer pronósticos.
+
+
+
+## Carga los datos
+
+
+```{r}
+library(forecast)
+library(ggplot2)
+
+source("../../Scripts/Utils/utils.R")
+
+gas <- readRDS("../../Datos/datos_limpios.rds")
+
+class(gas)
+start(gas)
+end(gas)
+frequency(gas)
+
+length(gas)
+anyNA(gas)
+all(is.finite(gas))
+all(gas > 0)
+
+```
+
+
+## Explorar la serie
+
+```{r}
+autoplot(gas) +
+  tema_graficos(
+    titulo_x = "Año",
+    titulo_y = "Consumo de gas (millones de pies cúbicos)",
+    usar_linea = FALSE
+  )
+
+```
+
+
+```{r}
+ggseasonplot(gas) +
+  labs(colour = "Año") +
+  tema_graficos(
+    titulo_x = "Mes",
+    titulo_y = "Consumo de gas (millones de pies cúbicos)",
+    usar_linea = FALSE
+  )
+```
+
+
+```{r}
+descomp_gas <- decompose(gas, type = "additive")
+
+autoplot(descomp_gas) +
+  tema_graficos(
+    titulo_x = "Año",
+    titulo_y = "",
+    usar_linea = FALSE
+  )
+
+```
+
+
+El consumo de gas presenta un patrón marcado ya que aumenta al inicio y al final del año y disminuye durante los meses de mediado de años. 
+
+
+
+
+```{r}
+# Evaluar estacionariedad
+tseries::adf.test(gas, alternative = "stationary")
+```
+
+
+```{r}
+# Transformar la serie
+gas_log <- log(gas)
+
+autoplot(gas_log) +
+  tema_graficos(
+    titulo_x = "Año",
+    titulo_y = "Logaritmo del consumo de gas",
+    usar_linea = FALSE
+  )
+```
+
+
+```{r}
+tseries::adf.test(gas_log, alternative = "stationary")
+```
+
+
+Se aplicó una trasnformación logarítmica para estabilizar la variabilidad, también se aplicó la prueba Dickey–Fuller rechazó el supuesto de presencia de raíz unitaria (p < 0,01), de maner que que no se consideró necesaria aplicar una diferencia. 
+
+
+
+
+## Ajustar los modelos candidatos
+
+Se ajustaron dos modelos. El primero incluye variables indicadoras para la estacionalidad y el segundo añade tendencia lineal
+
+
+```{r}
+
+mod1 <- tslm(gas ~ season, lambda = 0)
+
+mod2 <- tslm(gas ~ trend + season, lambda = 0)
+
+summary(mod1)
+summary(mod2)
+```
+
+
+
+## Verificar supuestos
+
+```{r}
+
+checkresiduals(mod1, lag = 24, plot = FALSE)
+
+
+checkresiduals(mod2, lag = 24, plot = FALSE)
+```
+
+
+
+```{r}
+
+residuos_modelos <- rbind(
+  data.frame(
+    modelo = "Modelo 1",
+    residuo = as.numeric(residuals(mod1))
+  ),
+  data.frame(
+    modelo = "Modelo 2",
+    residuo = as.numeric(residuals(mod2))
+  )
+)
+
+# Gráficos Q-Q
+ggplot(residuos_modelos, aes(sample = residuo)) +
+  stat_qq(colour = "#4682B4", alpha = 0.6) +
+  stat_qq_line() +
+  facet_wrap(~ modelo) +
+  tema_graficos(
+    titulo_x = "Cuantiles teóricos normales",
+    titulo_y = "Cuantiles de los residuos logarítmicos",
+    usar_linea = FALSE
+  )
+
+# Pruebas de normalidad
+shapiro.test(as.numeric(residuals(mod1)))
+shapiro.test(as.numeric(residuals(mod2)))
+```
+
+
+En los dos modelos se detectó autocorrelación en los residuos y no se cumple el supuesto de normalidad.
+
+## Comparar modelos
+
+```{r}
+comparacion <- data.frame(
+  Modelo = c("mod1", "mod2"),
+  AIC = c(AIC(mod1), AIC(mod2)),
+  BIC = c(BIC(mod1), BIC(mod2)),
+  RMSE = c(
+    accuracy(mod1)[1, "RMSE"],
+    accuracy(mod2)[1, "RMSE"]
+  ),
+  MAE = c(
+    accuracy(mod1)[1, "MAE"],
+    accuracy(mod2)[1, "MAE"]
+  )
+)
+
+comparacion
+```
+
+
+Se seleccionó el modelo 2 porque obtuvo menores AIC, BIC y MAE.
+
+
+
+# Aplicar newey-west al modelo ganador
+
+```{r}
+
+mod2_nw <- mod2
+mod2_nw$x <- NULL
+mod2_nw$residuals <- as.numeric(residuals(mod2))
+mod2_nw$fitted.values <- log(as.numeric(fitted(mod2)))
+class(mod2_nw) <- "lm"
+
+vcov_nw <- sandwich::NeweyWest(
+  mod2_nw,
+  lag = NULL,
+  prewhite = FALSE,
+  adjust = TRUE,
+  verbose = TRUE
+)
+
+
+resultado_nw <- lmtest::coeftest(
+  mod2_nw,
+  vcov. = vcov_nw,
+  df = Inf
+)
+
+resultado_nw
+```
+
+
+```{r}
+
+rezagos_nw <- floor(
+  sandwich::bwNeweyWest(mod2_nw, prewhite = FALSE)
+)
+
+rezagos_nw
+```
+
+
+
+```{r}
+vcov_nw12 <- sandwich::NeweyWest(
+  mod2_nw, lag = 12, prewhite = FALSE, adjust = TRUE
+)
+
+lmtest::coeftest(
+  mod2_nw, vcov. = vcov_nw12, df = Inf
+)["trend", , drop = FALSE]
+
+vcov_nw24 <- sandwich::NeweyWest(
+  mod2_nw, lag = 24, prewhite = FALSE, adjust = TRUE
+)
+
+lmtest::coeftest(
+  mod2_nw, vcov. = vcov_nw24, df = Inf
+)["trend", , drop = FALSE]
+```
+
+
+
+Se calcularon errores estándar con el metodo de Newey–West ya que esta corrección permite evaluar la incertidumbre de los coeficientes tomando en cuenta la dependencia temporal aunque la autocorrelación de los residuos se mantiene.
+
+
+
+```{r}
+grafico_ajuste <- autoplot(gas, series = "Observada") +
+  autolayer(fitted(mod2), series = "Ajustada") +
+  labs(colour = "Serie") +
+  tema_graficos(
+    titulo_x = "Año",
+    titulo_y = "Consumo de gas (millones de pies cúbicos)",
+    usar_linea = FALSE
+  )
+
+grafico_ajuste
+```
+
+
+
+
+
+```{r}
+
+archivos <- c(
+  modelo = "../../Resultados/Modelos/regresion_modelo.rds",
+  inferencia = "../../Resultados/Modelos/regresion_newey_west.rds",
+  grafico = "../../Resultados/Graficos/regresion_ajuste.rds"
+)
+
+saveRDS(mod2, archivos[["modelo"]])
+
+saveRDS(
+  list(
+    covarianza = vcov_nw,
+    coeficientes = resultado_nw,
+    rezagos = rezagos_nw,
+    prewhite = FALSE,
+    adjust = TRUE
+  ),
+  archivos[["inferencia"]]
+)
+
+saveRDS(grafico_ajuste, archivos[["grafico"]])
+
+data.frame(
+  archivo = basename(archivos),
+  creado = file.exists(archivos),
+  row.names = NULL
+)
+```
+
+
+
+El modelo ganador reproduce el patrón estacional anual pero aún presenta diferencias frente a los picos de consumo observados entre los años. 
+
