@@ -1,0 +1,234 @@
+---
+title: "Regresión Dinámica"
+format: html
+---
+
+## Regresión Dinámica
+
+1. Probar todos los modelos que consideren necesarios y escoger el mejor basandose en criterios de información, métricas de desempeño y supuestos del modelo.
+
+2. Incluir una breve descripción del análisis realizado.
+
+3. Exportar en formato rds, dentro de la Ruta "Resultados/Modelo" el modelo ganador junto a los gráficos que se incluirán en el artículo.
+
+4. No debe hacer pronósticos.
+
+
+## Cargar los datos
+
+```{r}
+library(forecast)
+library(ggplot2)
+
+source("../../Scripts/Utils/utils.R")
+
+gas <- readRDS("../../Datos/datos_limpios.rds")
+
+list(
+  clase = class(gas),
+  inicio = start(gas),
+  fin = end(gas),
+  frecuencia = frequency(gas),
+  observaciones = length(gas),
+  tiene_faltantes = anyNA(gas),
+  todos_finitos = all(is.finite(gas)),
+  todos_positivos = all(gas > 0)
+)
+```
+
+
+
+
+## Revision de la Autocorrelación
+
+```{r}
+gas_log <- log(gas)
+
+regresion_base <- tslm(gas_log ~ season + trend)
+residuos_base <- as.numeric(residuals(regresion_base))
+
+ggAcf(residuos_base, lag.max = 36) +
+  tema_graficos(
+    titulo_x = "Rezago (meses)",
+    titulo_y = "Autocorrelación",
+    usar_linea = FALSE
+  )
+
+ggPacf(residuos_base, lag.max = 36) +
+  tema_graficos(
+    titulo_x = "Rezago (meses)",
+    titulo_y = "Autocorrelación parcial",
+    usar_linea = FALSE
+  )
+```
+
+
+
+
+```{r}
+
+regresion_base_meses <- tslm(gas_log ~ season)
+residuos_meses <- as.numeric(residuals(regresion_base_meses))
+
+ggAcf(residuos_meses, lag.max = 36) +
+  tema_graficos(
+    titulo_x = "Rezago (meses)",
+    titulo_y = "Autocorrelación",
+    usar_linea = FALSE
+  )
+
+ggPacf(residuos_meses, lag.max = 36) +
+  tema_graficos(
+    titulo_x = "Rezago (meses)",
+    titulo_y = "Autocorrelación parcial",
+    usar_linea = FALSE
+  )
+
+```
+
+
+
+comparamos dos modelos; El primero toma en cuenta el mes de cada año porque el consumo tiene un patrón que se repite en cada año. El segundo agrega una tendencia para ver si además de las diferencias entre meses, el consumo fue cambiando con los años. En ambos casos la autocorrelación de los residuos disminuyó en los primeros rezagos y el pico más claro en la autocorrelación parcial apareció en el primer mes, por lo que se decidió probar errores AR(1) y revisar después si se mantiene la autocorrelación en el rezago 11.
+
+
+
+```{r}
+mes <- factor(cycle(gas), levels = 1:12)
+x_meses <- model.matrix(~ mes)[, -1, drop = FALSE]
+x_meses_tendencia <- cbind(x_meses, tendencia = seq_along(gas))
+
+# modelo 1
+din1 <- forecast::Arima(
+  gas,
+  xreg = x_meses,
+  order = c(1, 0, 0),
+  lambda = 0,
+  method = "ML"
+)
+
+# modelo 2
+din2 <- forecast::Arima(
+  gas,
+  xreg = x_meses_tendencia,
+  order = c(1, 0, 0),
+  lambda = 0,
+  method = "ML"
+)
+
+summary(din1)
+summary(din2)
+```
+
+
+
+## Diagnosticar las innovaciones
+
+
+```{r}
+checkresiduals(din1, lag = 24, plot = FALSE)
+checkresiduals(din2, lag = 24, plot = FALSE)
+
+ggAcf(residuals(din1, type = "innovation"), lag.max = 36) +
+  tema_graficos(
+    titulo_x = "Rezago (meses)",
+    titulo_y = "ACF de las innovaciones de din1",
+    usar_linea = FALSE
+  )
+
+ggAcf(residuals(din2, type = "innovation"), lag.max = 36) +
+  tema_graficos(
+    titulo_x = "Rezago (meses)",
+    titulo_y = "ACF de las innovaciones de din2",
+    usar_linea = FALSE
+  )
+```
+
+
+
+
+```{r}
+innovaciones <- data.frame(
+  anio = rep(as.numeric(time(gas)), 2),
+  modelo = rep(c("Meses", "Meses-tendencia"), each = length(gas)),
+  innovacion = c(
+    as.numeric(residuals(din1, type = "innovation")),
+    as.numeric(residuals(din2, type = "innovation"))
+  )
+)
+
+ggplot(innovaciones, aes(x = anio, y = innovacion)) +
+  geom_hline(yintercept = 0, colour = "grey60") +
+  facet_wrap(~ modelo, ncol = 1) +
+  tema_graficos(
+    titulo_x = "Año",
+    titulo_y = "Innovación en escala logarítmica"
+  )
+```
+
+
+
+
+En los dos modelos, los errores que quedaron después del ajuste se mantuvieron alrededor de cero, aunque en algunos meses fueron más grandes. con la prueba de Ljung–Box se obtuvo un valor p de 0,111 para el modelo con variables indicadoras mensuales y de 0,232 para el que incluye la tendencia.
+
+
+## Comparar y seleccionar modelo 
+
+```{r}
+ajuste_din1 <- accuracy(din1)
+ajuste_din2 <- accuracy(din2)
+
+comparacion <- data.frame(
+  Modelo = c("Meses + AR(1)", "Meses y tendencia + AR(1)"),
+  AICc = c(din1$aicc, din2$aicc),
+  BIC = c(BIC(din1), BIC(din2)),
+  RMSE = c(ajuste_din1[1, "RMSE"], ajuste_din2[1, "RMSE"]),
+  MAE = c(ajuste_din1[1, "MAE"], ajuste_din2[1, "MAE"])
+)
+
+comparacion
+```
+
+
+
+Elegimos el modelo con variables indicadoras mensual, tendencia y errores AR(1) porque se ajustó mejor a los datos. Al agregar la tendencia, el AICc bajó de −618,32 a −625,57 y el BIC de −567,04 a −570,73. Los errores también fueron menores. El error absoluto medio (MAE) pasó de 30 425,1 a 30 011,7 y el RMSE bajó de 48 041,99 a 47 678,80 millones de pies cúbicos.
+
+
+## gráfico del modelo seleccionado
+
+
+```{r}
+grafico_ajuste <- autoplot(gas, series = "Observada") +
+  autolayer(fitted(din2), series = "Ajustada") +
+  labs(colour = "Serie") +
+  tema_graficos(
+    titulo_x = "Año",
+    titulo_y = "Consumo de gas (millones de pies cúbicos)",
+    usar_linea = FALSE
+  )
+
+grafico_ajuste
+```
+
+
+
+El modelo muestra bien el comportamiento del consumo de gas a lo largo del año. En los meses de menor consumo, las dos líneas casi coinciden. En 2014 y 2025 el consumo llegó más alto de lo que estimó el modelo y en el 2006 el modelo estimó un nivel mayor al observado.
+
+
+```{r}
+archivos_dinamica <- c(
+  modelo = "../../Resultados/Modelos/regresion_dinamica_modelo.rds",
+  grafico = "../../Resultados/Graficos/regresion_dinamica_ajuste.rds"
+)
+
+saveRDS(din2, archivos_dinamica[["modelo"]])
+saveRDS(grafico_ajuste, archivos_dinamica[["grafico"]])
+
+data.frame(
+  archivo = basename(archivos_dinamica),
+  creado = file.exists(archivos_dinamica),
+  row.names = NULL
+)
+```
+
+
+
