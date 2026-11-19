@@ -5,18 +5,16 @@ format: html
 
 ## Regresión
 
-1. Probar todos los modelos que consideren necesarios y escoger el mejor basandose en criterios de información, métricas de desempeño y supuestos del modelo.
+1. Probar los modelos candidatos y seleccionar uno según los criterios de información, las medidas de desempeño y el diagnóstico de los residuos.
 
 2. Incluir una breve descripción del análisis realizado.
 
-3. Exportar en formato rds, dentro de la Ruta "Resultados/Modelo" el modelo ganador junto a los gráficos que se incluirán en el artículo.
+3. Exportar el modelo seleccionado en formato RDS a `Resultados/Modelos` y el gráfico del ajuste a `Resultados/Graficos`.
 
-4. No debe hacer pronósticos.
-
+4. Limitar el análisis al ajuste del consumo observado.
 
 
 ## Carga los datos
-
 
 ```{r}
 library(forecast)
@@ -52,6 +50,7 @@ autoplot(gas) +
 ```
 
 
+
 ```{r}
 ggseasonplot(gas) +
   labs(colour = "Año") +
@@ -61,6 +60,7 @@ ggseasonplot(gas) +
     usar_linea = FALSE
   )
 ```
+
 
 
 ```{r}
@@ -76,193 +76,148 @@ autoplot(descomp_gas) +
 ```
 
 
-El consumo de gas presenta un patrón marcado ya que aumenta al inicio y al final del año y disminuye durante los meses de mediado de años. 
-
-
-
-
-```{r}
-# Evaluar estacionariedad
-tseries::adf.test(gas, alternative = "stationary")
-```
+El consumo de gas suele ser mayor al inicio y al final del año y menor a mediados de año.
 
 
 ```{r}
-# Transformar la serie
-gas_log <- log(gas)
+espectro_gas <- stats::spec.pgram(
+  as.numeric(gas),
+  demean = TRUE,
+  detrend = FALSE,
+  plot = FALSE
+)
 
-autoplot(gas_log) +
-  tema_graficos(
-    titulo_x = "Año",
-    titulo_y = "Logaritmo del consumo de gas",
-    usar_linea = FALSE
-  )
+pico <- which.max(espectro_gas$spec)
+frecuencia_pico <- espectro_gas$freq[pico]
+
+plot(espectro_gas, log = "no",
+     xlab = "Frecuencia (ciclos por mes)",
+     ylab = "Potencia espectral",
+     main = "")
+abline(v = frecuencia_pico, col = "red", lty = 2)
+
+1 / frecuencia_pico
 ```
 
-
-```{r}
-tseries::adf.test(gas_log, alternative = "stationary")
-```
-
-
-Se aplicó una trasnformación logarítmica para estabilizar la variabilidad, también se aplicó la prueba Dickey–Fuller rechazó el supuesto de presencia de raíz unitaria (p < 0,01), de maner que que no se consideró necesaria aplicar una diferencia. 
-
-
+El pico más alto del periodograma se muestra en un ciclo de 11,85 meses que coincide con el patrón que se observa en la serie.
 
 
 ## Ajustar los modelos candidatos
 
-Se ajustaron dos modelos. El primero incluye variables indicadoras para la estacionalidad y el segundo añade tendencia lineal
+Se ajustaron cuatro modelos. Uno usa indicadores mensuales y los otros tres representan la estacionalidad con Fourier para K = 1, 2 y 3.
 
 
 ```{r}
 
-mod1 <- tslm(gas ~ season, lambda = 0)
+mod_meses <- tslm(gas ~ season)
 
-mod2 <- tslm(gas ~ trend + season, lambda = 0)
+mod_fourier1 <- tslm(gas ~ fourier(gas, K = 1))
+mod_fourier2 <- tslm(gas ~ fourier(gas, K = 2))
+mod_fourier3 <- tslm(gas ~ fourier(gas, K = 3))
 
-summary(mod1)
-summary(mod2)
+modelos <- list(
+  "Indicadores mensuales" = mod_meses,
+  "Fourier K = 1" = mod_fourier1,
+  "Fourier K = 2" = mod_fourier2,
+  "Fourier K = 3" = mod_fourier3
+)
+
+names(modelos)
 ```
-
 
 
 ## Verificar supuestos
 
 ```{r}
 
-checkresiduals(mod1, lag = 24, plot = FALSE)
+diagnostico_bg <- data.frame(
+  Modelo = names(modelos),
+  Valor_p = vapply(modelos, function(modelo) {
+    lmtest::bgtest(modelo, order = 24)$p.value
+  }, numeric(1)),
+  row.names = NULL
+)
 
-
-checkresiduals(mod2, lag = 24, plot = FALSE)
+diagnostico_bg
 ```
 
 
 
 ```{r}
-
-residuos_modelos <- rbind(
+residuos_modelos <- do.call(rbind, lapply(names(modelos), function(nombre) {
   data.frame(
-    modelo = "Modelo 1",
-    residuo = as.numeric(residuals(mod1))
-  ),
-  data.frame(
-    modelo = "Modelo 2",
-    residuo = as.numeric(residuals(mod2))
+    modelo = nombre,
+    residuo = as.numeric(residuals(modelos[[nombre]]))
   )
-)
+}))
 
-# Gráficos Q-Q
 ggplot(residuos_modelos, aes(sample = residuo)) +
   stat_qq(colour = "#4682B4", alpha = 0.6) +
   stat_qq_line() +
-  facet_wrap(~ modelo) +
+  facet_wrap(~ modelo, ncol = 2) +
   tema_graficos(
-    titulo_x = "Cuantiles teóricos normales",
-    titulo_y = "Cuantiles de los residuos logarítmicos",
+    titulo_x = "Cuantiles teóricos",
+    titulo_y = "Cuantiles de los residuos",
     usar_linea = FALSE
   )
-
-# Pruebas de normalidad
-shapiro.test(as.numeric(residuals(mod1)))
-shapiro.test(as.numeric(residuals(mod2)))
 ```
 
+La prueba de Breusch–Godfrey hasta el rezago 24 encontró evidencia de autocorrelación en los residuos de los cuatro modelos y también se comprobó que no se cumple el supuesto de normalidad en los modelos ajustados.
 
-En los dos modelos se detectó autocorrelación en los residuos y no se cumple el supuesto de normalidad.
+
 
 ## Comparar modelos
 
 ```{r}
+errores <- do.call(rbind, lapply(modelos, function(modelo) {
+  accuracy(modelo)[1, c("RMSE", "MAE", "MAPE")]
+}))
+
 comparacion <- data.frame(
-  Modelo = c("mod1", "mod2"),
-  AIC = c(AIC(mod1), AIC(mod2)),
-  BIC = c(BIC(mod1), BIC(mod2)),
-  RMSE = c(
-    accuracy(mod1)[1, "RMSE"],
-    accuracy(mod2)[1, "RMSE"]
-  ),
-  MAE = c(
-    accuracy(mod1)[1, "MAE"],
-    accuracy(mod2)[1, "MAE"]
-  )
+  Modelo = names(modelos),
+  AIC = vapply(modelos, AIC, numeric(1)),
+  BIC = vapply(modelos, BIC, numeric(1)),
+  RMSE = errores[, "RMSE"],
+  MAE = errores[, "MAE"],
+  MAPE = errores[, "MAPE"],
+  row.names = NULL
 )
 
 comparacion
 ```
 
-
-Se seleccionó el modelo 2 porque obtuvo menores AIC, BIC y MAE.
-
+Se eligió el modelo con indicadores mensuales porque obtuvo el menor AIC y los menores errores de ajuste (RMSE, MAE y MAPE). Su MAPE fue de 7,99 %, frente al 8,26 % de Fourier con K = 3 que obtuvo el menor BIC.
 
 
-# Aplicar newey-west al modelo ganador
+## Errores estándar de Newey–West
 
 ```{r}
 
-mod2_nw <- mod2
-mod2_nw$x <- NULL
-mod2_nw$residuals <- as.numeric(residuals(mod2))
-mod2_nw$fitted.values <- log(as.numeric(fitted(mod2)))
-class(mod2_nw) <- "lm"
+modelo_elegido <- mod_meses
+
+modelo_nw <- modelo_elegido
+modelo_nw$x <- NULL
+class(modelo_nw) <- "lm"
+
+rezagos_nw <- floor(sandwich::bwNeweyWest(modelo_nw, prewhite = FALSE))
 
 vcov_nw <- sandwich::NeweyWest(
-  mod2_nw,
-  lag = NULL,
+  modelo_nw,
+  lag = rezagos_nw,
   prewhite = FALSE,
-  adjust = TRUE,
-  verbose = TRUE
+  adjust = TRUE
 )
 
-
-resultado_nw <- lmtest::coeftest(
-  mod2_nw,
-  vcov. = vcov_nw,
-  df = Inf
-)
-
+resultado_nw <- lmtest::coeftest(modelo_nw, vcov. = vcov_nw, df = Inf)
 resultado_nw
 ```
 
-
-```{r}
-
-rezagos_nw <- floor(
-  sandwich::bwNeweyWest(mod2_nw, prewhite = FALSE)
-)
-
-rezagos_nw
-```
-
-
-
-```{r}
-vcov_nw12 <- sandwich::NeweyWest(
-  mod2_nw, lag = 12, prewhite = FALSE, adjust = TRUE
-)
-
-lmtest::coeftest(
-  mod2_nw, vcov. = vcov_nw12, df = Inf
-)["trend", , drop = FALSE]
-
-vcov_nw24 <- sandwich::NeweyWest(
-  mod2_nw, lag = 24, prewhite = FALSE, adjust = TRUE
-)
-
-lmtest::coeftest(
-  mod2_nw, vcov. = vcov_nw24, df = Inf
-)["trend", , drop = FALSE]
-```
-
-
-
-Se calcularon errores estándar con el metodo de Newey–West ya que esta corrección permite evaluar la incertidumbre de los coeficientes tomando en cuenta la dependencia temporal aunque la autocorrelación de los residuos se mantiene.
-
+Se calcularon los errores estándar de Newey–West para tener en cuenta la dependencia temporal al evaluar la incertidumbre de los coeficientes.
 
 
 ```{r}
 grafico_ajuste <- autoplot(gas, series = "Observada") +
-  autolayer(fitted(mod2), series = "Ajustada") +
+  autolayer(fitted(modelo_elegido), series = "Ajustada") +
   labs(colour = "Serie") +
   tema_graficos(
     titulo_x = "Año",
@@ -275,8 +230,6 @@ grafico_ajuste
 
 
 
-
-
 ```{r}
 
 archivos <- c(
@@ -285,7 +238,7 @@ archivos <- c(
   grafico = "../../Resultados/Graficos/regresion_ajuste.rds"
 )
 
-saveRDS(mod2, archivos[["modelo"]])
+saveRDS(modelo_elegido, archivos[["modelo"]])
 
 saveRDS(
   list(
@@ -306,8 +259,3 @@ data.frame(
   row.names = NULL
 )
 ```
-
-
-
-El modelo ganador reproduce el patrón estacional anual pero aún presenta diferencias frente a los picos de consumo observados entre los años. 
-
