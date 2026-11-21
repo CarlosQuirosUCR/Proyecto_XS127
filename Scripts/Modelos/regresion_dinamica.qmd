@@ -386,5 +386,3 @@ saveRDS(din_meses, "../../Resultados/Modelos/regresion_dinamica_modelo.rds")
 saveRDS(grafico_ajuste, "../../Resultados/Graficos/regresion_dinamica_ajuste.rds")
 ```
 
-
-
