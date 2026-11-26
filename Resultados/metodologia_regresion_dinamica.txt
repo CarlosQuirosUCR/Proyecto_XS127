@@ -1,0 +1,8 @@
+
+# Metodología
+
+Comparamos cuatro modelos con errores AR(1). Uno con indicadores mensuales y los otros 
+tres usaron términos de Fourier con uno, dos y tres armónicos. Elegimos el modelo con 
+indicadores mensuales porque obtuvo los menores valores de AICc, BIC, RMSE y MAE. En el 
+modelo elegido, la prueba de Ljung–Box hasta el rezago 24 no econtró  autocorrelación en 
+las innovaciones.

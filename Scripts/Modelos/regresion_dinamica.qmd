@@ -343,7 +343,16 @@ tabla_dinamicos[order(tabla_dinamicos$AICc), ]
 ```
 
 
-Se seleccionó el modelo con indicadores mensuales y errores AR(1) porque obtuvo los menores valores de AICc, BIC, RMSE, MAE y MAPE de los cuatro modelos evaluados.
+El modelo seleccionado fue
+
+$$
+\begin{aligned}
+Y_t &= \beta_0 + \beta_1 I_1 + \cdots + \beta_{11} I_{11} + \eta_t, \\
+\eta_t &= \phi_1 \eta_{t-1} + \epsilon_t.
+\end{aligned}
+$$
+
+
 
 
 
