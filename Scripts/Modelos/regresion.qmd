@@ -37,6 +37,18 @@ all(gas > 0)
 ```
 
 
+
+## Dividir los datos
+
+```{r}
+train <- window(gas / 1e3, start = c(2000, 1), end = c(2025, 6))
+test  <- window(gas / 1e3, start = c(2025, 7), end = c(2026, 6))
+
+c(entrenamiento = length(train), prueba = length(test))
+```
+
+
+
 ## Explorar la serie
 
 ```{r}
@@ -109,11 +121,10 @@ Se ajustaron cuatro modelos. Uno usa indicadores mensuales y los otros tres repr
 
 ```{r}
 
-mod_meses <- tslm(gas ~ season)
-
-mod_fourier1 <- tslm(gas ~ fourier(gas, K = 1))
-mod_fourier2 <- tslm(gas ~ fourier(gas, K = 2))
-mod_fourier3 <- tslm(gas ~ fourier(gas, K = 3))
+mod_meses <- tslm(train ~ season)
+mod_fourier1 <- tslm(train ~ fourier(train, K = 1))
+mod_fourier2 <- tslm(train ~ fourier(train, K = 2))
+mod_fourier3 <- tslm(train ~ fourier(train, K = 3))
 
 modelos <- list(
   "Indicadores mensuales" = mod_meses,
@@ -121,8 +132,6 @@ modelos <- list(
   "Fourier K = 2" = mod_fourier2,
   "Fourier K = 3" = mod_fourier3
 )
-
-names(modelos)
 ```
 
 
@@ -197,6 +206,19 @@ $$
 
 
 
+
+```{r}
+pronostico_prueba <- forecast::forecast(mod_meses, h = length(test))
+
+metricas_prueba <- forecast::accuracy(pronostico_prueba, test)[
+  "Test set", c("RMSE", "MAE"), drop = FALSE
+]
+
+metricas_prueba
+```
+
+
+
 ## Gráfico del ajuste
 
 ```{r}
@@ -233,3 +255,22 @@ data.frame(
   row.names = NULL
 )
 ```
+
+
+
+
+```{r}
+evaluacion_regresion <- data.frame(
+  Modelo = "Regresión con indicadores mensuales",
+  AIC = AIC(mod_meses),
+  BIC = BIC(mod_meses),
+  RMSE = metricas_prueba["Test set", "RMSE"],
+  MAE = metricas_prueba["Test set", "MAE"]
+)
+
+ruta_evaluacion <- "../../Resultados/Modelos/regresion_evaluacion_prueba.rds"
+saveRDS(evaluacion_regresion, ruta_evaluacion)
+
+readRDS(ruta_evaluacion)
+```
+
