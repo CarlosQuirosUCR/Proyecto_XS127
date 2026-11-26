@@ -37,6 +37,15 @@ list(
 ```
 
 
+# division de datos
+
+```{r}
+train <- window(gas / 1e3, start = c(2000, 1), end = c(2025, 6))
+test  <- window(gas / 1e3, start = c(2025, 7), end = c(2026, 6))
+
+c(entrenamiento = length(train), prueba = length(test))
+```
+
 
 
 ## Anáñisis Espectral
@@ -188,34 +197,33 @@ Se ajustaron cuatro modelos; Una presenta la estacionalidad con indicadores mens
 ## Ajuste de los modelos candidatos
 
 ```{r}
-mes <- factor(cycle(gas), levels = 1:12)
-
+mes <- factor(cycle(train), levels = 1:12)
 x_meses <- model.matrix(~ mes)[, -1, drop = FALSE]
 
 din_meses <- forecast::Arima(
-  gas,
+  train,
   xreg = x_meses,
   order = c(1, 0, 0),
   method = "ML"
 )
 
 din_fourier1 <- forecast::Arima(
-  gas,
-  xreg = forecast::fourier(gas, K = 1),
+  train,
+  xreg = forecast::fourier(train, K = 1),
   order = c(1, 0, 0),
   method = "ML"
 )
 
 din_fourier2 <- forecast::Arima(
-  gas,
-  xreg = forecast::fourier(gas, K = 2),
+  train,
+  xreg = forecast::fourier(train, K = 2),
   order = c(1, 0, 0),
   method = "ML"
 )
 
 din_fourier3 <- forecast::Arima(
-  gas,
-  xreg = forecast::fourier(gas, K = 3),
+  train,
+  xreg = forecast::fourier(train, K = 3),
   order = c(1, 0, 0),
   method = "ML"
 )
@@ -356,6 +364,25 @@ $$
 
 
 
+```{r}
+mes_prueba <- factor(cycle(test), levels = 1:12)
+x_meses_prueba <- model.matrix(~ mes_prueba)[, -1, drop = FALSE]
+colnames(x_meses_prueba) <- colnames(x_meses)
+
+pronostico_prueba_dinamica <- forecast::forecast(
+  din_meses,
+  xreg = x_meses_prueba
+)
+
+metricas_prueba_dinamica <- forecast::accuracy(
+  pronostico_prueba_dinamica, test
+)["Test set", c("RMSE", "MAE"), drop = FALSE]
+
+metricas_prueba_dinamica
+```
+
+
+
 ## gráfico del modelo seleccionado
 
 
@@ -400,4 +427,23 @@ saveRDS(grafico_ajuste, "../../Resultados/Graficos/regresion_dinamica_ajuste.rds
 ```{r}
 saveRDS(tabla_dinamicos, "../../Resultados/Modelos/regresion_dinamica_comparacion.rds")
 ```
+
+
+
+```{r}
+evaluacion_regresion_dinamica <- data.frame(
+  Modelo = "Indicadores mensuales con errores AR(1)",
+  AIC = AIC(din_meses),
+  AICc = din_meses$aicc,
+  BIC = BIC(din_meses),
+  RMSE = metricas_prueba_dinamica["Test set", "RMSE"],
+  MAE = metricas_prueba_dinamica["Test set", "MAE"]
+)
+
+ruta_evaluacion <- "../../Resultados/Modelos/regresion_dinamica_evaluacion_prueba.rds"
+saveRDS(evaluacion_regresion_dinamica, ruta_evaluacion)
+
+readRDS(ruta_evaluacion)
+```
+
 
