@@ -1,8 +1,4 @@
 
 # Metodología
 
-Comparamos cuatro modelos con errores AR(1). Uno con indicadores mensuales y los otros 
-tres usaron términos de Fourier con uno, dos y tres armónicos. Elegimos el modelo con 
-indicadores mensuales porque obtuvo los menores valores de AICc, BIC, RMSE y MAE. En el 
-modelo elegido, la prueba de Ljung–Box hasta el rezago 24 no econtró  autocorrelación en 
-las innovaciones.
+Se ajustaron cuatro modelos de regresión dinámica con errores AR(1) debido a que la autocorrelación parcial de los residuos estuvo más marcada en el primer rezago. En uno de los modelos propuestos se representó el patrón anual con indicadores mensuales, tomando enero como referencia. En los otros tres modelos propuestos se utilizó los términos de Fourier con uno, dos y tres armónicos respectivamente. Para evaluar si quedaba dependencia temporal después del ajuste de los modelos, se revisó la función de autocorrelación de las innovaciones y se aplicó la prueba de Ljung–Box hasta el rezago 24. Se seleccionó el modelo con indicadores mensuales y errores AR(1) y la prueba no mostró evidencia de autocorrelación.
