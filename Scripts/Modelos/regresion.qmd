@@ -187,7 +187,7 @@ comparacion
 ```
 
 
-Para explicar el patrón anual del consumo de gas, ajustamos cuatro modelos. Tenemos Uno con indicadores mensuales y en los otros tres se usaron términos de Fourier con uno, dos y tres armónicos. Elegimos el modelo con indicadores mensuales porque tuvo el menor AIC, RMSE y MAE. Como la prueba de Breusch–Godfrey detectó autocorrelación en los residuos, usamos errores estándar de Newey–West estimar los coeficientes.
+Para explicar el patrón anual del consumo de gas, ajustamos cuatro modelos. Tenemos Uno con indicadores mensuales y en los otros tres se usaron términos de Fourier con uno, dos y tres armónicos. Elegimos el modelo con indicadores mensuales porque tuvo el menor AIC, RMSE y MAE. La prueba de Breusch–Godfrey encontró autocorrelación en los residuos del modelo seleccionado.
 
 El modelo seleccionado fue el siguiente:
 
@@ -197,33 +197,12 @@ $$
 
 
 
-## Errores estándar de Newey–West
+## Gráfico del ajuste
 
 ```{r}
 
 modelo_elegido <- mod_meses
 
-modelo_nw <- modelo_elegido
-modelo_nw$x <- NULL
-class(modelo_nw) <- "lm"
-
-rezagos_nw <- floor(sandwich::bwNeweyWest(modelo_nw, prewhite = FALSE))
-
-vcov_nw <- sandwich::NeweyWest(
-  modelo_nw,
-  lag = rezagos_nw,
-  prewhite = FALSE,
-  adjust = TRUE
-)
-
-resultado_nw <- lmtest::coeftest(modelo_nw, vcov. = vcov_nw, df = Inf)
-resultado_nw
-```
-
-Se calcularon los errores estándar de Newey–West para tener en cuenta la dependencia temporal al evaluar la incertidumbre de los coeficientes.
-
-
-```{r}
 grafico_ajuste <- autoplot(gas, series = "Observada") +
   autolayer(fitted(modelo_elegido), series = "Ajustada") +
   labs(colour = "Serie") +
@@ -242,23 +221,10 @@ grafico_ajuste
 
 archivos <- c(
   modelo = "../../Resultados/Modelos/regresion_modelo.rds",
-  inferencia = "../../Resultados/Modelos/regresion_newey_west.rds",
   grafico = "../../Resultados/Graficos/regresion_ajuste.rds"
 )
 
 saveRDS(modelo_elegido, archivos[["modelo"]])
-
-saveRDS(
-  list(
-    covarianza = vcov_nw,
-    coeficientes = resultado_nw,
-    rezagos = rezagos_nw,
-    prewhite = FALSE,
-    adjust = TRUE
-  ),
-  archivos[["inferencia"]]
-)
-
 saveRDS(grafico_ajuste, archivos[["grafico"]])
 
 data.frame(
