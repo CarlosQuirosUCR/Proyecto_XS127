@@ -186,7 +186,15 @@ comparacion <- data.frame(
 comparacion
 ```
 
-Se eligió el modelo con indicadores mensuales porque obtuvo el menor AIC y los menores errores de ajuste (RMSE, MAE y MAPE). Su MAPE fue de 7,99 %, frente al 8,26 % de Fourier con K = 3 que obtuvo el menor BIC.
+
+Para explicar el patrón anual del consumo de gas, ajustamos cuatro modelos. Tenemos Uno con indicadores mensuales y en los otros tres se usaron términos de Fourier con uno, dos y tres armónicos. Elegimos el modelo con indicadores mensuales porque tuvo el menor AIC, RMSE y MAE. Como la prueba de Breusch–Godfrey detectó autocorrelación en los residuos, usamos errores estándar de Newey–West estimar los coeficientes.
+
+El modelo seleccionado fue el siguiente:
+
+$$
+Y_t = \alpha_0 + \beta_1 I_1 + \cdots + \beta_{11} I_{11} + \epsilon_t.
+$$
+
 
 
 ## Errores estándar de Newey–West

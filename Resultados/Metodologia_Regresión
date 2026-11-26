@@ -1,0 +1,9 @@
+
+
+# Metodología
+
+Para explicar el patrón anual del consumo de gas, ajustamos cuatro modelos. 
+Tenemos uno con indicadores mensuales y en los otros tres se usaron términos de Fourier 
+con uno, dos y tres armónicos. Elegimos el modelo con indicadores mensuales porque 
+tuvo el menor AIC, RMSE y MAE. Como la prueba de Breusch–Godfrey detectó autocorrelación 
+en los residuos, usamos errores estándar de Newey–West estimar los coeficientes.
