@@ -388,3 +388,7 @@ saveRDS(grafico_ajuste, "../../Resultados/Graficos/regresion_dinamica_ajuste.rds
 
 
 
+```{r}
+saveRDS(tabla_dinamicos, "../../Resultados/Modelos/regresion_dinamica_comparacion.rds")
+```
+
