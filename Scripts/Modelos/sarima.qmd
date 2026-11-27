@@ -1,0 +1,144 @@
+---
+title: "arima"
+format: html
+---
+# Librerías
+```{r}
+library(ggplot2)
+library(forecast)
+library(knitr)
+source("../../Scripts/Utils/utils.R")
+```
+
+# Datos
+```{r}
+gas <- readRDS("../../Datos/datos_limpios.rds")
+```
+
+# División del Dataset
+
+Se busca generar pronósticos a 1 año. Por lo tanto, los datos de prueba deben tener esa misma extensión.
+
+- **Entrenamiento:** ara los datos de entrenamiento se seleccionaron 26.5 años, equivalente al 95% de los datos totales.
+- **Prueba:** para los datos de prueba se seleccionaron 1 año, equivalente al 5% de los datos totales.
+
+```{r}
+train<- window(gas/1e03,start=c(2000,1), end =c(2025,6))
+test<- window(gas/1e03,start =c(2025,7), end=c(2026,6))
+```
+
+
+# Modelos ARIMA
+
+1. Probar todos los modelos que consideren necesarios y escoger el mejor basándose en criterios de información, métricas de desempeño y supuestos del modelo.
+
+2. Incluir una breve descripción del análisis realizado.
+
+3. Exportar en formato rds, dentro de la Ruta "Resultados/Modelo" el modelo ganador junto a los gráficos que se incluirán en el artículo.
+
+4. No debe hacer pronósticos.
+
+## Ajuste de los modelos
+
+```{r, warning=FALSE}
+#Evaluar estacionariedad con Pruebas Dickey Fuller y KPSS
+adf.test(train)$p.v #p.value=0.01 #hay evidencia de estacionariedad
+kpss.test(train)$p.v #p.value=0.1 #no hay evidencia de no estacionariedad
+Acf(train) #no hay una disminución lenta de las autocorrelaciones, propio de la estacionariedad
+```
+
+```{r}
+#Revisar PACF y ACF
+invisible(acf2(train, max.lag=48))
+```
+
+```{r}
+#Modelos
+arima1 <-Arima(train, order = c(4,0,0), seasonal = c(2,1,0))
+arima2 <-Arima(train, order = c(3,0,0), seasonal = c(2,1,0))
+arima3 <-Arima(train, order = c(3,0,0), seasonal = c(2,1,1))
+arima4 <-Arima(train, order = c(1,0,0), seasonal = c(2,1,1))
+arima5 <-Arima(train, order = c(1,0,1), seasonal = c(2,1,1))
+```
+
+```{r}
+#Condiciones de los coeficientes
+arima1;arima2;arima3;arima4;arima5
+```
+
+## Generación de pronósticos
+
+```{r}
+fc_arima1 <- forecast(arima1, h=length(test))
+fc_arima2 <- forecast(arima2, h=length(test))
+fc_arima3 <- forecast(arima3, h=length(test))
+fc_arima4 <- forecast(arima4, h=length(test))
+fc_arima5 <- forecast(arima5, h=length(test))
+```
+
+## Desempeño
+
+```{r}
+desemp_arima <- data.frame(
+  Modelo = c("ARIMA(4,0,0)(2,1,0)",
+             "ARIMA(3,0,0)(2,1,0)",
+             "ARIMA(3,0,0)(2,1,1)",
+             "ARIMA(1,0,0)(2,1,1)",
+             "ARIMA(1,0,1)(2,1,1)"),
+  RMSE = c(accuracy(fc_arima1, test)["Test set", "RMSE"],
+           accuracy(fc_arima2, test)["Test set", "RMSE"],
+           accuracy(fc_arima3, test)["Test set", "RMSE"],
+           accuracy(fc_arima4, test)["Test set", "RMSE"],
+           accuracy(fc_arima5, test)["Test set", "RMSE"]),
+  MAE = c(accuracy(fc_arima1, test)["Test set", "MAE"],
+          accuracy(fc_arima2, test)["Test set", "MAE"],
+          accuracy(fc_arima3, test)["Test set", "MAE"],
+          accuracy(fc_arima4, test)["Test set", "MAE"],
+          accuracy(fc_arima5, test)["Test set", "MAE"]),
+  AIC = c(fc_arima1$model$aic,
+          fc_arima2$model$aic,
+          fc_arima3$model$aic,
+          fc_arima4$model$aic,
+          fc_arima5$model$aic),
+  BIC = c(fc_arima1$model$bic,
+          fc_arima2$model$bic,
+          fc_arima3$model$bic,
+          fc_arima4$model$bic,
+          fc_arima5$model$bic))
+desemp_arima
+```
+
+
+# Exportables
+
+## Modelo
+```{r}
+modelo_arima <- arima1
+saveRDS(modelo_arima, file = "../../Resultados/Modelos/modelo_arima.rds")
+```
+
+## Tabla desempeño
+```{r}
+tabla_arima <- desemp_arima
+saveRDS(tabla_arima, file = "../../Resultados/Graficos/tabla_arima.rds")
+```
+
+## Gráficos
+```{r}
+graf_ACF_arima <- ggAcf(arima1$residuals, lag.max = 36) +
+  tema_graficos(
+    titulo_x = "Rezago",
+    titulo_y = "ACF")
+graf_PACF_arima <-ggPacf(arima1$residuals, lag.max = 36) +
+  tema_graficos(
+    titulo_x = "Rezago",
+    titulo_y = "PACF")
+saveRDS(graf_ACF_arima, file = "../../Resultados/Graficos/graficoACF_arimap.rds")
+saveRDS(graf_PACF_arima, file = "../../Resultados/Graficos/graficoPACF_arima.rds")
+```
+
+```{r}
+#Raíces inversas
+g4 <- autoplot(arima1)
+```
+
