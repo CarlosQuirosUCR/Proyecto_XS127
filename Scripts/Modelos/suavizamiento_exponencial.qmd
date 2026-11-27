@@ -30,13 +30,8 @@ test<- window(gas/1e03,start =c(2025,7), end=c(2026,6))
 
 # Suavizamiento Exponencial
 
-1. Probar todos los modelos que consideren necesarios y escoger el mejor basándose en criterios de información, métricas de desempeño y supuestos del modelo.
 
-2. Incluir una breve descripción del análisis realizado.
 
-3. Exportar en formato rds, dentro de la Ruta "Resultados/Modelo" el modelo ganador junto a los gráficos que se incluirán en el artículo.
-
-4. No debe hacer pronósticos.
 
 ### Ajuste de los modelos
 
@@ -94,5 +89,11 @@ graf_PACF_suavexp <-ggPacf(hw_amortig$residuals, lag.max = 36) +
     titulo_y = "PACF")
 saveRDS(graf_ACF_suavexp, file = "../../Resultados/Graficos/graficoACF_suavexp.rds")
 saveRDS(graf_PACF_suavexp, file = "../../Resultados/Graficos/graficoPACF_suavexp.rds")
+
+
+```{r}
+path_raiz <- getwd()
+dir <- paste0(path_raiz,"/Resultados")
+dir
 ```
 

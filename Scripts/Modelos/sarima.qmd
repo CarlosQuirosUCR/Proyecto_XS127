@@ -1,0 +1,14 @@
+---
+title: "SARIMA"
+format: html
+---
+
+## SARIMA
+
+1. Probar todos los modelos que consideren necesarios y escoger el mejor basandose en criterios de información, métricas de desempeño y supuestos del modelo.
+
+2. Incluir una breve descripción del análisis realizado.
+
+3. Exportar en formato rds, dentro de la Ruta "Resultados/Modelo" el modelo ganador junto a los gráficos que se incluirán en el artículo.
+
+4. No debe hacer pronósticos.

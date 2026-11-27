@@ -33,7 +33,37 @@ format:
     include-in-header:
       - file: latex/preamble.tex
       - file: latex/header.tex
+
+
+execute:
+  echo: false
+  message: false
+  warning: false
+  error: false
 ---
+
+
+```{r}
+library(forecast)
+library(readxl)
+```
+```{r}
+tiempo <- "Mes"
+serie <- "Consumo de gas natural (millones de pies cúbicos)"
+```
+
+
+```{r}
+# Cargar archivo con las plantillas de los gráficos.
+source("../Scripts/Utils/utils.R")
+# Cargar los datos
+datos <- read_excel("../Datos/datos_gas.xlsx")
+# Convertir a objeto ts
+ts_completa <- ts(datos$`Consumo de Gas Residencial`, start=c(1973,1), frequency = 12)
+# Cargar la serie para los últimos 16 años.
+ts_recortada <- readRDS("../Datos/datos_limpios.rds")
+```
+
 
 # Introducción
 
@@ -48,7 +78,7 @@ Por otra parte, Estados Unidos, a diferencia de muchos otros países, cuenta con
 
 Según menciona @valdezGas, Estados Unidos es el uno de los máximos productores de gas natural a nivel mundial. Por lo tanto, este hidrocarburo es una de las fuentes de energía más utilizadas por los hogares en ese país, tanto para realizar las labores cotidianas como  para alimentar los sistemas de calefacción de las vivienda. Asimismo, debido a las bajas temperaturas que se presentan en este país durante el invierno, principalmente en las regiones ubicadas hacia el norte, sobre todo en las zonas cercanas a los Grandes Lagos (Nueva York, Michigan, Minnesota, etc.) o a las Montañas Rocallosas (Montana, Wyoming, etc.), el consumo de gas natural adquiere una mayor relevancia durante esta época del año [@timmer2007relations].
 
-Debido a la alta demanda que posee el gas natural en los Estados Unidos, principalmente durante el invierno, es relevante pronosticar su consumo mensual, sobre todo en las épocas del año en que su uso es mayor, y donde un desabasto sería crítico, pues se podría comprometer la salud física de las personas, especialmente de aquellas que no pueden costear un aumento significativo en el costo del gas, producido por una alza importante en la demanda y una oferta insuficiente.
+Debido a la alta demanda que posee el gas natural en los Estados Unidos, principalmente durante el invierno, es relevante pronosticar su consumo mensual, sobre todo en las épocas del año en que su uso es mayor, y donde un desabasto sería crítico, pues se podría comprometer la salud física de las personas, especialmente de aquellas que no pueden costear un aumento significativo en el precio del gas, producido por una alza importante en la demanda y una oferta insuficiente.
 
 Por último, en el análisis de series temporales energéticas se utilizan métodos de descomposición para aislar la tendencia, estacionalidad y componente irregular. Jiang et al. [@Jiang2023WPDVMDLSTM] desarrollaron un marco híbrido con LSTM para pronosticar el consumo mensual de gas en Estados Unidos, filtrando el ruido estacional. Asimismo, Wei y Bai [@Wei2022SSACNNBiGRU] propusieron el esquema SSA-CNN-BiGRU para consumo en edificios del Reino Unido, combinando el análisis espectral singular con redes profundas para reducir la no estacionariedad y volatilidad de datos.
 
@@ -58,5 +88,105 @@ En conclusión, el presente proyecto tiene como propósito evaluar distintos mod
 
 # Metodología
 
-# Referencias Biliográficas
+Para el análisis estadístico se dispone de 642 observaciones correspondientes a la serie temporal del consumo residencial de gas natural en Estados Unidos, expresado en millones de pies cúbicos y registrado mensualmente entre enero de 1973 y junio de 2006. Como se muestra en el panel a de la @fig-serie, la serie no presenta una tendencia definida y mantiene una media y una variabilidad aproximadamente constantes a lo largo del período. Aunque se observa un ligero incremento de la varianza hacia el final de la serie, este no parece ser particularmente significativo.
+
+Por otra parte, la serie presenta un marcado patrón estacional, como se aprecia en el panel b de la @fig-serie. En particular, el consumo aumenta considerablemente durante los meses de invierno (al inicio y al final del año), mientras que alcanza sus niveles más bajos durante el verano (a mediados del año). Este comportamiento puede explicarse por el mayor uso de sistemas de calefacción alimentados por gas natural durante los meses más fríos en Estados Unidos.
+
+Los datos fueron recopilados por la @eia_us_ng_residential_consumption, la cual es la principal agencia estadounidense encargada de elaborar estadísticas y analizar los datos del Departamento de Energía de los Estados Unidos. Los datos se obtuvieron del sitio web oficial, además no contienen valores faltantes y para todo el período, los valores tienen sentido lógico y son coherentes con el comportamiento de la serie descrito en la @fig-serie.
+
+```{r}
+#| label: fig-serie
+#| fig-cap: Consumo mensual de gas natural en Estados Unidos, entre enero 1973 y junio 2026
+#| fig-subcap: 
+#| - "Serie temporal"
+#| - "Estacionalidad"
+#| fig-pos: "H"
+#| layout-ncol: 2
+#| fig-width: 5.8
+#| fig-height: 4.2
+
+autoplot(ts_completa)+
+  tema_graficos(tiempo, serie)
+
+ggseasonplot(ts_completa, continuous = TRUE)+
+  theme_classic()+
+  labs(
+    x=tiempo,
+    y=serie,
+    title = ""
+  )
+  
+```
+
+En el panel b se presenta la descomposición de la serie para este período más reciente. Se observa que el patrón estacional presenta una forma aproximadamente sinusoidal, la cual debe tomarse en cuenta a la hora de modelar la serie.  Asimismo,  destaca una disminución de la tendencia durante los años 2009-2010, que podría estar relacionada con los efectos de la crisis económica de 2008-2009. Por otra parte la disminución en la tendencia alrededor del año 2005, puede estar vinculada a la destrucción que produjo los huracanes Katrina y Rita, que causaron un aumento en los precios del gas natural debido a que se vio afectada la producción de este mineral en el Golfo de México. 
+
+```{r}
+#| label: fig-descomposicion
+#| fig-cap: Descomposición clásica del consumo mensual de gas natural en Estados Unidos, entre enero 1973 y junio 2026
+#| fig-subcap: 
+#| - "Período completo"
+#| - "Enero 2000 a junio 2026"
+#| fig-pos: "H"
+#| layout-ncol: 2
+#| fig-width: 5.8
+#| fig-height: 4.2
+
+descomposicion_serie_completa <- decompose(
+  ts_completa,
+  type= "additive"
+)
+
+
+autoplot(descomposicion_serie_completa, range.bars = FALSE) +
+  facet_grid(
+    parts ~ ., scales = "free_y", switch = "y",
+    labeller = as_labeller(c(
+      data = "Serie original",
+      trend = "Tendencia",
+      seasonal = "Estacionalidad",
+      remainder = "Irregular"
+    ))
+  ) +
+  tema_graficos(tiempo, serie) +
+  theme(
+    plot.title.position = "plot",
+    strip.text.y.left = element_text(angle = 0, size = 9)
+  )
+
+
+
+descomposicion_serie_recortada <- decompose(
+  ts_recortada,
+  type= "additive"
+)
+
+
+autoplot(descomposicion_serie_recortada, range.bars = FALSE) +
+  facet_grid(
+    parts ~ ., scales = "free_y", switch = "y",
+    labeller = as_labeller(c(
+      data = "Serie original",
+      trend = "Tendencia",
+      seasonal = "Estacionalidad",
+      remainder = "Irregular"
+    ))
+  ) +
+
+  tema_graficos(tiempo, serie) +
+  theme(
+    plot.title.position = "plot",
+    strip.text.y.left = element_text(angle = 0, size = 9)
+  )
+```
+
+
+
+
+# Resultados
+
+# Conclusiones
+
+\newpage
+
+# Referencias Bibliográficas
 
