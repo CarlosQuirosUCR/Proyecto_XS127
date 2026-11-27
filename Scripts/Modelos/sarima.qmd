@@ -28,15 +28,7 @@ test<- window(gas/1e03,start =c(2025,7), end=c(2026,6))
 ```
 
 
-# Modelos ARIMA
-
-1. Probar todos los modelos que consideren necesarios y escoger el mejor basándose en criterios de información, métricas de desempeño y supuestos del modelo.
-
-2. Incluir una breve descripción del análisis realizado.
-
-3. Exportar en formato rds, dentro de la Ruta "Resultados/Modelo" el modelo ganador junto a los gráficos que se incluirán en el artículo.
-
-4. No debe hacer pronósticos.
+# Modelos SARIMA
 
 ## Ajuste de los modelos
 
@@ -141,4 +133,3 @@ saveRDS(graf_PACF_arima, file = "../../Resultados/Graficos/graficoPACF_arima.rds
 #Raíces inversas
 g4 <- autoplot(arima1)
 ```
-
