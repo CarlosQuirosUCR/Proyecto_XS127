@@ -12,3 +12,438 @@ format: html
 3. Exportar en formato rds, dentro de la Ruta "Resultados/Modelo" el modelo ganador junto a los gráficos que se incluirán en el artículo.
 
 4. No debe hacer pronósticos.
+
+
+## Cargar los datos
+
+```{r}
+library(forecast)
+library(ggplot2)
+
+source("../../Scripts/Utils/utils.R")
+
+gas <- readRDS("../../Datos/datos_limpios.rds")
+
+list(
+  clase = class(gas),
+  inicio = start(gas),
+  fin = end(gas),
+  frecuencia = frequency(gas),
+  observaciones = length(gas),
+  tiene_faltantes = anyNA(gas),
+  todos_finitos = all(is.finite(gas)),
+  todos_positivos = all(gas > 0)
+)
+```
+
+
+# division de datos
+
+```{r}
+train <- window(gas / 1e3, start = c(2000, 1), end = c(2025, 6))
+test  <- window(gas / 1e3, start = c(2025, 7), end = c(2026, 6))
+
+c(entrenamiento = length(train), prueba = length(test))
+```
+
+
+
+## Anáñisis Espectral
+
+```{r}
+espectro_gas <- stats::spec.pgram(
+  as.numeric(gas),
+  demean = TRUE,
+  detrend = FALSE,
+  plot = FALSE
+)
+
+pico <- which.max(espectro_gas$spec)
+frecuencia_pico <- espectro_gas$freq[pico]
+
+plot(
+  espectro_gas,
+  log = "no",
+  xlab = "Frecuencia",
+  ylab = "Potencia espectral",
+  main = ""
+)
+
+abline(v = frecuencia_pico, col = "red", lty = 2)
+
+data.frame(
+  frecuencia_ciclos_mes = frecuencia_pico,
+  periodo_meses = 1 / frecuencia_pico
+)
+```
+
+
+
+
+
+
+## Revision de la Autocorrelación
+
+```{r}
+library(forecast)
+library(ggplot2)
+
+regresion_base_meses <- forecast::tslm(gas ~ season)
+
+residuos_meses <- as.numeric(
+  residuals(regresion_base_meses)
+)
+
+ggAcf(residuos_meses, lag.max = 36) +
+  tema_graficos(
+    titulo_x = "Rezago (meses)",
+    titulo_y = "Autocorrelación",
+    usar_linea = FALSE
+  )
+
+ggPacf(residuos_meses, lag.max = 36) +
+  tema_graficos(
+    titulo_x = "Rezagos",
+    titulo_y = "Autocorrelación parcial",
+    usar_linea = FALSE
+  )
+```
+
+
+
+
+```{r}
+
+regresion_base_fourier1 <- forecast::tslm(
+  gas ~ forecast::fourier(gas, K = 1)
+)
+
+residuos_fourier1 <- as.numeric(
+  residuals(regresion_base_fourier1)
+)
+
+forecast::ggAcf(residuos_fourier1, lag.max = 36) +
+  tema_graficos(
+    titulo_x = "Rezagos",
+    titulo_y = "Autocorrelación",
+    usar_linea = FALSE
+  )
+
+forecast::ggPacf(residuos_fourier1, lag.max = 36) +
+  tema_graficos(
+    titulo_x = "Rezago (meses)",
+    titulo_y = "Autocorrelación parcial",
+    usar_linea = FALSE
+  )
+```
+
+
+
+```{r}
+regresion_base_fourier2 <- forecast::tslm(
+  gas ~ forecast::fourier(gas, K = 2)
+)
+
+residuos_fourier2 <- as.numeric(
+  residuals(regresion_base_fourier2)
+)
+
+forecast::ggAcf(residuos_fourier2, lag.max = 36) +
+  tema_graficos(
+    titulo_x = "Rezago (meses)",
+    titulo_y = "Autocorrelación",
+    usar_linea = FALSE
+  )
+
+forecast::ggPacf(residuos_fourier2, lag.max = 36) +
+  tema_graficos(
+    titulo_x = "Rezagos",
+    titulo_y = "Autocorrelación parcial",
+    usar_linea = FALSE
+  )
+```
+
+
+
+```{r}
+regresion_base_fourier3 <- forecast::tslm(
+  gas ~ forecast::fourier(gas, K = 3)
+)
+
+residuos_fourier3 <- as.numeric(
+  residuals(regresion_base_fourier3)
+)
+
+forecast::ggAcf(residuos_fourier3, lag.max = 36) +
+  tema_graficos(
+    titulo_x = "Rezago (meses)",
+    titulo_y = "Autocorrelación",
+    usar_linea = FALSE
+  )
+
+forecast::ggPacf(residuos_fourier3, lag.max = 36) +
+  tema_graficos(
+    titulo_x = "Rezagos",
+    titulo_y = "Autocorrelación parcial",
+    usar_linea = FALSE
+  )
+```
+
+
+
+Se ajustaron cuatro modelos; Una presenta la estacionalidad con indicadores mensuales y las otras tres con términos de Fourier (K=1, 2, 3). El modelo con indicadores mensuales, la autocorrelación disminuyó en los primeros rezagos y la autocorrelación parcial fue más marcada en el rezago 1. 
+
+
+## Ajuste de los modelos candidatos
+
+```{r}
+mes <- factor(cycle(train), levels = 1:12)
+x_meses <- model.matrix(~ mes)[, -1, drop = FALSE]
+
+din_meses <- forecast::Arima(
+  train,
+  xreg = x_meses,
+  order = c(1, 0, 0),
+  method = "ML"
+)
+
+din_fourier1 <- forecast::Arima(
+  train,
+  xreg = forecast::fourier(train, K = 1),
+  order = c(1, 0, 0),
+  method = "ML"
+)
+
+din_fourier2 <- forecast::Arima(
+  train,
+  xreg = forecast::fourier(train, K = 2),
+  order = c(1, 0, 0),
+  method = "ML"
+)
+
+din_fourier3 <- forecast::Arima(
+  train,
+  xreg = forecast::fourier(train, K = 3),
+  order = c(1, 0, 0),
+  method = "ML"
+)
+
+summary(din_meses)
+summary(din_fourier1)
+summary(din_fourier2)
+summary(din_fourier3)
+```
+
+
+
+## Diagnosticar las innovaciones
+
+
+```{r}
+modelos_dinamicos <- list(
+  "Indicadores mensuales + AR(1)" = din_meses,
+  "Fourier K = 1 + AR(1)" = din_fourier1,
+  "Fourier K = 2 + AR(1)" = din_fourier2,
+  "Fourier K = 3 + AR(1)" = din_fourier3
+)
+
+for (nombre in names(modelos_dinamicos)) {
+  cat("\n", nombre, "\n")
+
+  forecast::checkresiduals(
+    modelos_dinamicos[[nombre]],
+    lag = 24,
+    plot = FALSE
+  )
+}
+```
+
+
+
+
+```{r}
+library(forecast)
+library(ggplot2)
+
+for (nombre in names(modelos_dinamicos)) {
+
+  innovacion_actual <- as.numeric(
+    residuals(
+      modelos_dinamicos[[nombre]],
+      type = "innovation"
+    )
+  )
+
+  print(
+    forecast::ggAcf(innovacion_actual, lag.max = 36) +
+      ggplot2::labs(title = nombre) +
+      tema_graficos(
+        titulo_x = "Rezago",
+        titulo_y = "Autocorrelación de las innovaciones",
+        usar_linea = FALSE
+      )
+  )
+}
+```
+
+
+
+
+```{r}
+library(forecast)
+library(ggplot2)
+
+innovaciones <- do.call(
+  rbind,
+  lapply(names(modelos_dinamicos), function(nombre) {
+    data.frame(
+      anio = as.numeric(time(gas)),
+      modelo = nombre,
+      innovacion = as.numeric(
+        residuals(
+          modelos_dinamicos[[nombre]],
+          type = "innovation"
+        )
+      )
+    )
+  })
+)
+
+innovaciones$modelo <- factor(
+  innovaciones$modelo,
+  levels = names(modelos_dinamicos)
+)
+
+ggplot(innovaciones, aes(x = anio, y = innovacion)) +
+  geom_hline(yintercept = 0, colour = "grey60") +
+  geom_line(linewidth = 0.3) +
+  facet_wrap(~ modelo, ncol = 1) +
+  tema_graficos(
+    titulo_x = "Año",
+    titulo_y = "Innovación (millones de pies cúbicos)",
+    usar_linea = FALSE
+  )
+```
+
+
+
+La prueba de Ljung–Box hasta el rezago 24 presentó autocorrelación en las innovaciones de Fourier que mostró un patrón que se repetía cada seis meses en el modelo con indicadores mensuales y los de Fourier con K=2 y K=3, los valores p fueron 0,2196, 0,1388 y 0,3523, respectivamente.
+
+
+## Comparar y seleccionar modelo 
+
+```{r}
+tabla_dinamicos <- do.call(rbind, lapply(names(modelos_dinamicos), function(nombre) {
+  modelo <- modelos_dinamicos[[nombre]]
+  errores <- forecast::accuracy(modelo)
+
+  data.frame(
+    Modelo = nombre,
+    AICc = modelo$aicc,
+    BIC = stats::BIC(modelo),
+    RMSE = errores[1, "RMSE"],
+    MAE = errores[1, "MAE"],
+    MAPE = errores[1, "MAPE"]
+  )
+}))
+
+tabla_dinamicos[order(tabla_dinamicos$AICc), ]
+```
+
+
+El modelo seleccionado fue
+
+$$
+\begin{aligned}
+Y_t &= \beta_0 + \beta_1 I_1 + \cdots + \beta_{11} I_{11} + \eta_t, \\
+\eta_t &= \phi_1 \eta_{t-1} + \epsilon_t.
+\end{aligned}
+$$
+
+
+
+
+
+```{r}
+mes_prueba <- factor(cycle(test), levels = 1:12)
+x_meses_prueba <- model.matrix(~ mes_prueba)[, -1, drop = FALSE]
+colnames(x_meses_prueba) <- colnames(x_meses)
+
+pronostico_prueba_dinamica <- forecast::forecast(
+  din_meses,
+  xreg = x_meses_prueba
+)
+
+metricas_prueba_dinamica <- forecast::accuracy(
+  pronostico_prueba_dinamica, test
+)["Test set", c("RMSE", "MAE"), drop = FALSE]
+
+metricas_prueba_dinamica
+```
+
+
+
+## gráfico del modelo seleccionado
+
+
+```{r}
+library(ggplot2)
+
+datos_ajuste <- data.frame(
+  anio = as.numeric(time(gas)),
+  observado = as.numeric(gas),
+  ajustado = as.numeric(fitted(din_meses))
+)
+
+grafico_ajuste <- ggplot(datos_ajuste, aes(x = anio)) +
+  geom_line(aes(y = observado, color = "Observado"), linewidth = 0.6) +
+  geom_line(aes(y = ajustado, color = "Ajustado"), linewidth = 0.6) +
+  scale_color_manual(
+    values = c("Observado" = "grey35", "Ajustado" = "#0072B2"),
+    breaks = c("Observado", "Ajustado")
+  ) +
+  tema_graficos(
+    titulo_x = "Año",
+    titulo_y = "Consumo (millones de pies cúbicos)",
+    usar_linea = FALSE
+  ) +
+  labs(color = NULL) +
+  theme(legend.position = "bottom")
+
+grafico_ajuste
+```
+
+
+
+La serie ajustada reproduce el patrón del consumo de gas se puede ver que las diferencias son visibles en algunos picos. El modelo subestima los picos de 2014 y 2025 y sobreestima el de 2006.
+
+```{r}
+saveRDS(din_meses, "../../Resultados/Modelos/regresion_dinamica_modelo.rds")
+saveRDS(grafico_ajuste, "../../Resultados/Graficos/regresion_dinamica_ajuste.rds")
+```
+
+
+
+```{r}
+saveRDS(tabla_dinamicos, "../../Resultados/Modelos/regresion_dinamica_comparacion.rds")
+```
+
+
+
+```{r}
+evaluacion_regresion_dinamica <- data.frame(
+  Modelo = "Indicadores mensuales con errores AR(1)",
+  AIC = AIC(din_meses),
+  AICc = din_meses$aicc,
+  BIC = BIC(din_meses),
+  RMSE = metricas_prueba_dinamica["Test set", "RMSE"],
+  MAE = metricas_prueba_dinamica["Test set", "MAE"]
+)
+
+ruta_evaluacion <- "../../Resultados/Modelos/regresion_dinamica_evaluacion_prueba.rds"
+saveRDS(evaluacion_regresion_dinamica, ruta_evaluacion)
+
+readRDS(ruta_evaluacion)
+```
+
+
