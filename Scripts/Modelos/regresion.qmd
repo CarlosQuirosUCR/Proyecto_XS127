@@ -5,10 +5,272 @@ format: html
 
 ## Regresión
 
-1. Probar todos los modelos que consideren necesarios y escoger el mejor basandose en criterios de información, métricas de desempeño y supuestos del modelo.
+1. Probar los modelos candidatos y seleccionar uno según los criterios de información, las medidas de desempeño y el diagnóstico de los residuos.
 
 2. Incluir una breve descripción del análisis realizado.
 
-3. Exportar en formato rds, dentro de la Ruta "Resultados/Modelo" el modelo ganador junto a los gráficos que se incluirán en el artículo.
+3. Exportar el modelo seleccionado en formato RDS a `Resultados/Modelos` y el gráfico del ajuste a `Resultados/Graficos`.
 
-4. No debe hacer pronósticos.
+4. Limitar el análisis al ajuste del consumo observado.
+
+
+## Carga los datos
+
+```{r}
+library(forecast)
+library(ggplot2)
+
+source("../../Scripts/Utils/utils.R")
+
+gas <- readRDS("../../Datos/datos_limpios.rds")
+
+class(gas)
+start(gas)
+end(gas)
+frequency(gas)
+
+length(gas)
+anyNA(gas)
+all(is.finite(gas))
+all(gas > 0)
+
+```
+
+
+
+## Dividir los datos
+
+```{r}
+train <- window(gas / 1e3, start = c(2000, 1), end = c(2025, 6))
+test  <- window(gas / 1e3, start = c(2025, 7), end = c(2026, 6))
+
+c(entrenamiento = length(train), prueba = length(test))
+```
+
+
+
+## Explorar la serie
+
+```{r}
+autoplot(gas) +
+  tema_graficos(
+    titulo_x = "Año",
+    titulo_y = "Consumo de gas (millones de pies cúbicos)",
+    usar_linea = FALSE
+  )
+
+```
+
+
+
+```{r}
+ggseasonplot(gas) +
+  labs(colour = "Año") +
+  tema_graficos(
+    titulo_x = "Mes",
+    titulo_y = "Consumo de gas (millones de pies cúbicos)",
+    usar_linea = FALSE
+  )
+```
+
+
+
+```{r}
+descomp_gas <- decompose(gas, type = "additive")
+
+autoplot(descomp_gas) +
+  tema_graficos(
+    titulo_x = "Año",
+    titulo_y = "",
+    usar_linea = FALSE
+  )
+
+```
+
+
+El consumo de gas suele ser mayor al inicio y al final del año y menor a mediados de año.
+
+
+```{r}
+espectro_gas <- stats::spec.pgram(
+  as.numeric(gas),
+  demean = TRUE,
+  detrend = FALSE,
+  plot = FALSE
+)
+
+pico <- which.max(espectro_gas$spec)
+frecuencia_pico <- espectro_gas$freq[pico]
+
+plot(espectro_gas, log = "no",
+     xlab = "Frecuencia (ciclos por mes)",
+     ylab = "Potencia espectral",
+     main = "")
+abline(v = frecuencia_pico, col = "red", lty = 2)
+
+1 / frecuencia_pico
+```
+
+El pico más alto del periodograma se muestra en un ciclo de 11,85 meses que coincide con el patrón que se observa en la serie.
+
+
+## Ajustar los modelos candidatos
+
+Se ajustaron cuatro modelos. Uno usa indicadores mensuales y los otros tres representan la estacionalidad con Fourier para K = 1, 2 y 3.
+
+
+```{r}
+
+mod_meses <- tslm(train ~ season)
+mod_fourier1 <- tslm(train ~ fourier(train, K = 1))
+mod_fourier2 <- tslm(train ~ fourier(train, K = 2))
+mod_fourier3 <- tslm(train ~ fourier(train, K = 3))
+
+modelos <- list(
+  "Indicadores mensuales" = mod_meses,
+  "Fourier K = 1" = mod_fourier1,
+  "Fourier K = 2" = mod_fourier2,
+  "Fourier K = 3" = mod_fourier3
+)
+```
+
+
+## Verificar supuestos
+
+```{r}
+
+diagnostico_bg <- data.frame(
+  Modelo = names(modelos),
+  Valor_p = vapply(modelos, function(modelo) {
+    lmtest::bgtest(modelo, order = 24)$p.value
+  }, numeric(1)),
+  row.names = NULL
+)
+
+diagnostico_bg
+```
+
+
+
+```{r}
+residuos_modelos <- do.call(rbind, lapply(names(modelos), function(nombre) {
+  data.frame(
+    modelo = nombre,
+    residuo = as.numeric(residuals(modelos[[nombre]]))
+  )
+}))
+
+ggplot(residuos_modelos, aes(sample = residuo)) +
+  stat_qq(colour = "#4682B4", alpha = 0.6) +
+  stat_qq_line() +
+  facet_wrap(~ modelo, ncol = 2) +
+  tema_graficos(
+    titulo_x = "Cuantiles teóricos",
+    titulo_y = "Cuantiles de los residuos",
+    usar_linea = FALSE
+  )
+```
+
+La prueba de Breusch–Godfrey hasta el rezago 24 encontró evidencia de autocorrelación en los residuos de los cuatro modelos y también se comprobó que no se cumple el supuesto de normalidad en los modelos ajustados.
+
+
+
+## Comparar modelos
+
+```{r}
+errores <- do.call(rbind, lapply(modelos, function(modelo) {
+  accuracy(modelo)[1, c("RMSE", "MAE", "MAPE")]
+}))
+
+comparacion <- data.frame(
+  Modelo = names(modelos),
+  AIC = vapply(modelos, AIC, numeric(1)),
+  BIC = vapply(modelos, BIC, numeric(1)),
+  RMSE = errores[, "RMSE"],
+  MAE = errores[, "MAE"],
+  MAPE = errores[, "MAPE"],
+  row.names = NULL
+)
+
+comparacion
+```
+
+
+Para explicar el patrón anual del consumo de gas, ajustamos cuatro modelos. Tenemos Uno con indicadores mensuales y en los otros tres se usaron términos de Fourier con uno, dos y tres armónicos. Elegimos el modelo con indicadores mensuales porque tuvo el menor AIC, RMSE y MAE. La prueba de Breusch–Godfrey encontró autocorrelación en los residuos del modelo seleccionado.
+
+El modelo seleccionado fue el siguiente:
+
+$$
+Y_t = \alpha_0 + \beta_1 I_1 + \cdots + \beta_{11} I_{11} + \epsilon_t.
+$$
+
+
+
+
+```{r}
+pronostico_prueba <- forecast::forecast(mod_meses, h = length(test))
+
+metricas_prueba <- forecast::accuracy(pronostico_prueba, test)[
+  "Test set", c("RMSE", "MAE"), drop = FALSE
+]
+
+metricas_prueba
+```
+
+
+
+## Gráfico del ajuste
+
+```{r}
+
+modelo_elegido <- mod_meses
+
+grafico_ajuste <- autoplot(gas, series = "Observada") +
+  autolayer(fitted(modelo_elegido), series = "Ajustada") +
+  labs(colour = "Serie") +
+  tema_graficos(
+    titulo_x = "Año",
+    titulo_y = "Consumo de gas (millones de pies cúbicos)",
+    usar_linea = FALSE
+  )
+
+grafico_ajuste
+```
+
+
+
+```{r}
+
+archivos <- c(
+  modelo = "../../Resultados/Modelos/regresion_modelo.rds",
+  grafico = "../../Resultados/Graficos/regresion_ajuste.rds"
+)
+
+saveRDS(modelo_elegido, archivos[["modelo"]])
+saveRDS(grafico_ajuste, archivos[["grafico"]])
+
+data.frame(
+  archivo = basename(archivos),
+  creado = file.exists(archivos),
+  row.names = NULL
+)
+```
+
+
+
+
+```{r}
+evaluacion_regresion <- data.frame(
+  Modelo = "Regresión con indicadores mensuales",
+  AIC = AIC(mod_meses),
+  BIC = BIC(mod_meses),
+  RMSE = metricas_prueba["Test set", "RMSE"],
+  MAE = metricas_prueba["Test set", "MAE"]
+)
+
+ruta_evaluacion <- "../../Resultados/Modelos/regresion_evaluacion_prueba.rds"
+saveRDS(evaluacion_regresion, ruta_evaluacion)
+
+readRDS(ruta_evaluacion)
+```
+

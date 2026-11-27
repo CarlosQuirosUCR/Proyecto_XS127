@@ -1,0 +1,5 @@
+
+
+# Metodología
+
+Se compararon cuatro modelos para representar la serie del consumo de gas residencial en Estados Unidos. En el primer modelos se usó indicadores mensuales, con enero como referencia, de manera que cada coeficiente mensual representa la diferencia entre el consumo promedio del mes correspondiente y el de enero. En los otros tres modelos se usaron términos de Fourier. El primero incluyó un armónico de doce meses, el segundo combinó los de doce y seis meses, y el tercero añadió el de cuatro meses. Luego de que se ajustaron los modelos, se revisó la distribución de los residuos con gráficos de cuantiles normales y se aplicó la prueba de Breusch–Godfrey hasta el rezago 24 para evaluar si los residuos de distintos meses estaban correlacionados y el modelo seleccionado fue el de indicadores mensuales.
