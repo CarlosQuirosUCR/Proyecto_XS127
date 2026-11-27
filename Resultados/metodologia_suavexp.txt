@@ -1,0 +1,12 @@
+En cuanto a los modelos de suavizamiento exponencial, considerando que la serie tiene una fuerte presencia de estacionalidad se utilizaron los modelos Holt-Winters y Hot-Winters amortiguado, los cuales se enfocan en ajustar series temporales que tienen tanto tendencia como estacionalidad. Además, dado que la serie presenta una varianza global constante, no se realizó una transformación logarítmica.
+Al observar las métricas de desempeño y ajuste, se define que el enfoque Holt-Winters es que tiene mejor comportamiento tanto en desempeño como en ajuste, por esa razón este es elegido el ganador. Los parámetros estimados α=0.2247, β=0.0001y γ=0.0001 indican que el modelo ajusta el nivel utilizando información reciente, aunque con una intensidad moderada. Por otro lado, la tendencia y la estacionalidad apenas se actualizan, por lo que ambos componentes permanecen prácticamente constantes durante el período analizado, lo que sugiere una estructura estacional muy estable en la serie.
+
+Ecuación del modelo:
+
+\[ l_t = 0.225\left(Z_t - S_{t-12}\right) + 0.775\left(l_{t-1}+b_{t-1}\right) \]
+
+\[ b_t = 0.0001\left(l_t-l_{t-1}\right) + 0.9999\,b_{t-1} \]
+
+\[ S_t = 0.0001\left(Z_t-l_t-b_{t-1}\right) + 0.9999\,S_{t-12} \]
+
+\[ P_{t+m} = l_t + m\,b_t + S_{t-m-s} \]

@@ -3,15 +3,92 @@ title: "suavizamiento_exponencial"
 format: html
 ---
 
-## Suavizamiento Exponencial
+# Librerías y datos
 
-1. Probar todos los modelos que consideren necesarios y escoger el mejor basandose en criterios de información, métricas de desempeño y supuestos del modelo.
+## Librerías
+```{r}
+library(ggplot2)
+library(forecast)
+library(knitr)
+source("../../Scripts/Utils/utils.R")
+```
 
-2. Incluir una breve descripción del análisis realizado.
+## Cargar serie
+```{r}
+gas <- readRDS("../../Datos/datos_limpios.rds")
+```
 
-3. Exportar en formato rds, dentro de la Ruta "Resultados/Modelo" el modelo ganador junto a los gráficos que se incluirán en el artículo.
+## División del Dataset
+```{r}
+train<- window(gas/1e03,start=c(2000,1), end =c(2025,6))
+test<- window(gas/1e03,start =c(2025,7), end=c(2026,6))
+```
 
-4. No debe hacer pronósticos.
+- **Entrenamiento:** para los datos de entrenamiento se seleccionaron 26.5 años, equivalente al 95% de los datos totales.
+- **Prueba:** para los datos de prueba se seleccionaron 1 año, equivalente al 5% de los datos totales.
+
+
+# Suavizamiento Exponencial
+
+
+
+
+### Ajuste de los modelos
+
+```{r}
+hw_clasico <- hw(train, seasonal = "additive") #Holt
+hw_amortig <- hw(train, seasonal = "additive", damped = TRUE) #Holt amortiguado
+```
+
+### Generación de pronósticos
+
+```{r}
+fc_hw_clasico <- forecast(hw_clasico, h=length(test))
+fc_hw_amortig <- forecast(hw_amortig, h=length(test))
+```
+
+### Desempeño
+
+```{r}
+desemp_hw <- data.frame(
+  Modelo = c("Holt Clásico", "Holt Amortig."),
+  RMSE = c(accuracy(fc_hw_clasico, test)["Test set", "RMSE"],
+           accuracy(fc_hw_amortig, test)["Test set", "RMSE"]),
+  MAE = c(accuracy(fc_hw_clasico, test)["Test set", "MAE"],
+          accuracy(fc_hw_amortig, test)["Test set", "MAE"]),
+  AIC = c(fc_hw_clasico$model$aic,
+          fc_hw_amortig$model$aic),
+  BIC = c(fc_hw_clasico$model$bic,
+          fc_hw_amortig$model$bic))
+```
+
+
+# Exportables
+
+## Modelo
+```{r}
+modelo_suavexp <- hw_clasico
+saveRDS(modelo_suavexp, file = "../../Resultados/Modelos/modelo_suavexp.rds")
+```
+
+## Tabla desempeño
+```{r}
+tabla_suavexp <- desemp_hw
+saveRDS(tabla_suavexp, file = "../../Resultados/Graficos/tabla_suavexp.rds")
+```
+
+## Gráficos
+```{r}
+graf_ACF_suavexp <- ggAcf(hw_amortig$residuals, lag.max = 36) +
+  tema_graficos(
+    titulo_x = "Rezago",
+    titulo_y = "ACF")
+graf_PACF_suavexp <-ggPacf(hw_amortig$residuals, lag.max = 36) +
+  tema_graficos(
+    titulo_x = "Rezago",
+    titulo_y = "PACF")
+saveRDS(graf_ACF_suavexp, file = "../../Resultados/Graficos/graficoACF_suavexp.rds")
+saveRDS(graf_PACF_suavexp, file = "../../Resultados/Graficos/graficoPACF_suavexp.rds")
 
 
 ```{r}
